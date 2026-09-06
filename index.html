@@ -29,8 +29,11 @@
         .nav-btn { display: block; padding: 14px 12px; color: var(--text-main); text-decoration: none; font-size: 0.82rem; font-weight: 500; text-align: center; line-height: 1.3; border-left: 3px solid transparent; transition: all 0.2s ease; cursor: pointer; }
         .nav-btn.active { background: #ffffff; color: var(--primary-color); font-weight: bold; border-left-color: var(--primary-color); }
         
-        .right-content { flex: 1; overflow-y: auto; padding: 0 15px 40px 15px; background-color: var(--bg-color); }
-        .section-title { font-size: 1rem; margin: 24px 0 12px 0; color: #2c3e50; border-left: 4px solid var(--primary-color); padding-left: 8px; }
+        /* 💡 开启平滑滚动效果 */
+        .right-content { flex: 1; overflow-y: auto; padding: 0 15px 40px 15px; background-color: var(--bg-color); scroll-behavior: smooth; }
+        
+        /* 💡 关键修改：加上 scroll-margin-top 确保顶部对齐留出空隙 */
+        .section-title { font-size: 1rem; margin: 24px 0 12px 0; color: #2c3e50; border-left: 4px solid var(--primary-color); padding-left: 8px; scroll-margin-top: 24px; }
         
         .item-card { background: var(--card-bg); padding: 14px; border-radius: var(--border-radius); margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); display: block; text-decoration: none; color: inherit; border: 1px solid #f1f2f6; transition: transform 0.2s ease, box-shadow 0.2s ease; position: relative; }
         .item-card:hover { box-shadow: 0 4px 12px rgba(33, 147, 176, 0.08); border-color: #d1f2fb; }
@@ -49,7 +52,7 @@
 
 <header>
     <h1>🧚🏻‍♀️ 罗兰岗生活指南 🧚🏻‍♂️</h1>
-    <p>华人聚居区与新兴“中国城”。点击任一卡片即可快捷导航。</p>
+    <p>实时同步谷歌表格数据。点击任意卡片一键调起 Google Maps 海外精准导航。</p>
 </header>
 
 <div class="main-content">
@@ -60,7 +63,6 @@
 </div>
 
 <script>
-    // 🔗 已成功绑定你的 Google Apps Script Web 应用 API
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxztsBvHqHiWrvVeHZ5eu-AdswQj6VUbc3cb9IlIgh3gj6x5F97cewu9-YvEk-e6YcL/exec'; 
 
     async function fetchSheetData() {
@@ -69,24 +71,21 @@
         return await res.json();
     }
 
-    // 解析表格矩阵数据 (Col A:分类 | Col B:中文店名 | Col C:英文店名 | Col D:地址 | Col E:描述)
     function parseRowsToCategories(rows) {
         const categoriesMap = {};
 
         rows.forEach((row, index) => {
             if (!row || row.length < 3) return;
 
-            const colA = String(row[0] || '').trim(); // 分类
-            const colB = String(row[1] || '').trim(); // 中文店名
-            const colC = String(row[2] || '').trim(); // 英文店名
-            const colD = String(row[3] || '').trim(); // 地址
-            const colE = String(row[4] || '').trim(); // 描述
+            const colA = String(row[0] || '').trim(); 
+            const colB = String(row[1] || '').trim(); 
+            const colC = String(row[2] || '').trim(); 
+            const colD = String(row[3] || '').trim(); 
+            const colE = String(row[4] || '').trim(); 
 
-            // 自动跳过标题行
             if (index === 0 && (colA.toLowerCase() === 'category' || colA.includes('分类'))) return;
             if (!colA) return;
 
-            // 拼接店名：大中华超市 GW Supermarket
             let storeName = colB;
             if (colC) {
                 if (colB && colB !== colC) {
@@ -149,12 +148,26 @@
             const targetId = 'cat-' + idx;
             navBtn.setAttribute('data-target', targetId);
             navBtn.innerText = section.catName;
+            
+            // 💡 关键修改：为左侧按钮添加点击联动滚动事件
+            navBtn.addEventListener('click', () => {
+                // 1. 切换左侧高亮状态
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                navBtn.classList.add('active');
+
+                // 2. 控制右侧容器滚动到目标元素
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView();
+                }
+            });
+
             leftNav.appendChild(navBtn);
 
             const title = document.createElement('h2');
             title.className = 'section-title';
             title.id = targetId;
-            title.innerText = section.catName + "";
+            title.innerText = section.catName;
             rightContent.appendChild(title);
 
             section.items.forEach(item => {
@@ -172,47 +185,9 @@
                 rightContent.appendChild(card);
             });
         });
-
-        bindInteractions();
     }
 
-    function bindInteractions() {
-        const navButtons = document.querySelectorAll('.nav-btn');
-        const rightContent = document.getElementById('rightContent');
-        const sections = document.querySelectorAll('.section-title');
-
-        navButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                navButtons.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-
-                const targetId = this.getAttribute('data-target');
-                const targetSection = document.getElementById(targetId);
-                if (targetSection) {
-                    rightContent.scrollTo({ top: targetSection.offsetTop - 10, behavior: 'smooth' });
-                }
-            });
-        });
-
-        rightContent.addEventListener('scroll', () => {
-            let currentId = '';
-            sections.forEach(section => {
-                if (section.getBoundingClientRect().top <= 160) {
-                    currentId = section.getAttribute('id');
-                }
-            });
-            if (currentId) {
-                navButtons.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.getAttribute('data-target') === currentId) {
-                        btn.classList.add('active');
-                        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                });
-            }
-        });
-    }
-
+    // 页面加载时初始化数据
     loadDataFromSheet();
 </script>
 </body>
